@@ -18,17 +18,17 @@
     <div class="ctrl-board">
       <div class="ctrl-evts clearfix">
         <h2>电梯控制（5部）</h2>
-        <section evt-ctrl ng-repeat="evtid in [0, 1, 2, 3, 4]" evtid="{{evtid}}"></section>
+        <section evt-ctrl ng-repeat="evtid in constant.evtids" evtid="{{evtid}}"></section>
       </div>
       <div class="ctrl-stys">
         <h2>楼层外部控制（20层）</h2>
-        <section sty-ctrl ng-repeat="styid in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]" styid="{{styid}}"></section>
+        <section sty-ctrl ng-repeat="styid in constant.styids" styid="{{styid}}"></section>
       </div>
     </div>
     <aside class="evt-info">
       <h2>电梯信息汇总</h2>
       <ul>
-        <li ng-repeat="evtid in [0, 1, 2, 3, 4]" evtid="{{evtid}}">1楼，上行，关门</li>
+        <li ng-repeat="evtid in constant.evtids" evtid="{{evtid}}">1楼，上行，关门</li>
       </ul>
     </aside>
   </div>
