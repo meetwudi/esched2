@@ -1,0 +1,22 @@
+{
+  "name": "esched",
+  "version": "0.0.0",
+  "description": "操作系统课程作业",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/tjwudi/esched2.git"
+  },
+  "author": "John Wu <webmaster@leapoahead.com> (https://github.com/tjwudi)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tjwudi/esched2/issues"
+  },
+  "homepage": "https://github.com/tjwudi/esched2"
+}

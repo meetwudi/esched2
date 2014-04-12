@@ -3,28 +3,27 @@
   Author: John Wu (Tongji University)
 ###
 
-angular.module("evtsim", [])
+app = angular.module("evtsim", [])
 
-.constant('constant', 
+app.constant('constant', 
   # 电梯和楼层数据
-  stycnt: 20
+  stycnt: 20      
   styids: [1..20]
   evtcnt: 4
   evtids: [0..4]
-
   # 单位时间
-  timeunit = 1000
+  timeunit: 1000 
 )
 
-.factory('RequestQueue', ['constant', (constant) ->
+app.factory('RequestQueue', ['constant', (constant) ->
   class RequestQueue
     # @data: 若@data[i]为true则代表是否要到该楼层
-    constructor: (@status) ->
+    constructor: () ->
       @_data = [false]
       @_data.push(false) for _ in [1..constant.stycnt]
 
     isEmpty: ->
-      for item in data
+      for item in @_data
         if item
           return false
       return true
@@ -39,26 +38,28 @@ angular.module("evtsim", [])
       @_data[styid] = true
       true
 
-    resolveRequest(styid) ->
+    resolveRequest: (styid) ->
       @_data[styid] = false
 
     getNearestRequest: (cursty, status) ->
-      return _getNearestRequestFromBottomToTop(cursty) if status is 1
-      return _getNearestRequestFromTopToButtom(cursty) if status is -1
-      -1 # 当前是停止状态
+      return @_getNearestRequestFromBottomToTop(cursty) if status is 1
+      return @_getNearestRequestFromTopToButtom(cursty) if status is -1
+      @_getNearestRequestFromBottomToTop(cursty) ? @_getNearestRequestFromTopToButtom(cursty)
 
     _getNearestRequestFromBottomToTop: (cursty) ->
       for sty in [cursty..constant.stycnt] 
         if @_data[sty]
           return sty
+      -1 # 上升方向没有要去的地方了
 
     _getNearestRequestFromTopToButtom: (cursty) ->
-      for sty in [styid..1] by 1
+      for sty in [cursty..1]
         if @_data[sty]
           return sty
+      -1 # 下降方向没有要去的地方了
 ])
 
-.factory('Elevator', ['RequestQueue', 'constant', (RequestQueue, constant) ->
+app.factory('Elevator', ['RequestQueue', 'constant', (RequestQueue, constant) ->
   class Elevator
     # @status: 0: 暂停, 1: 上行, -1: 下行
     constructor: (@id) ->
@@ -69,37 +70,41 @@ angular.module("evtsim", [])
     addRequest: (styid) ->
       result = @requestQueue.addRequest(styid, @cursty)
       if result
-        @onStatusChange() 
+        @onStatusMayChange() 
       else
         alert('注册该任务失败') # ugly alert
 
     onStatusMayChange: ->
       if @requestQueue.isEmpty()
         @status = 0
-      else if @requestQueue.getNearestRequest(@cursty) > @cursty
+      else if @requestQueue.getNearestRequest(@cursty, @status) > @cursty
         @status = 1
       else
         @status = -1
-      @_step()
+      console.log("Status changed to: #{@status}")
+      setTimeout(@_step.bind(this), constant.timeunit)
 
     _step: ->
-      nearestRequest = @requestQueue.getNearestRequest(@cursty)
+      nearestRequest = @requestQueue.getNearestRequest(@cursty, @status)
       if nearestRequest is @cursty
         @requestQueue.resolveRequest(@cursty)
-        onStatusMayChange()
+        @onStatusMayChange()
       else 
         if nearestRequest > @cursty
-          _moveUp()
+          @_moveUp()
         else
-          _moveDown()
-      setTimeout(constant.timeunit, @_step)
+          @_moveDown()
+        setTimeout(@_step.bind(this), constant.timeunit)
 
-    _moveUp: -> @cursty++
+    _moveUp: -> 
+      @cursty++
+      console.log("move up to #{@cursty}");
 
-    _moveDown: -> @cursty--
+    _moveDown: -> 
+      @cursty--
 ])
 
-.factory('elevators', ['Elevator', 'constant', (Elevator, constant) ->
+app.factory('elevators', ['Elevator', 'constant', (Elevator, constant) ->
   evts = []
   for evtid in [1..constant.evtcnt]
     evts.push(new Elevator)
@@ -110,7 +115,7 @@ angular.module("evtsim", [])
   RequestDispatcher 
   负责分发外部请求，在这里做无差异分发（即遇到可分发的电梯便分发）
 ###
-.service('RequestDispatcher', ['elevators', 'constant', (elevators, constant) -> 
+app.service('RequestDispatcher', ['elevators', 'constant', (elevators, constant) -> 
   @dispatch = (sty) ->
     for elevator in elevators
       if elevator.addRequest(sty)
@@ -119,7 +124,7 @@ angular.module("evtsim", [])
     setTimeout(constant.timeunit / 2, @dispatch)
 ])
 
-.directive("evtCtrl", ['constant', (constant) ->
+app.directive("evtCtrl", ['constant', (constant) ->
   replace: true
   transclude: true
   scope:
@@ -136,7 +141,7 @@ angular.module("evtsim", [])
             </section>'
 ])
 
-.directive("styCtrl", [ ->
+app.directive("styCtrl", [ ->
   replace: true
   transclude: true
   scope:
@@ -155,7 +160,7 @@ angular.module("evtsim", [])
   btnInner
   触发内部请求的按钮
 ###
-.directive('btnInner', ['elevators', (elevators) ->
+app.directive('btnInner', ['elevators', (elevators) ->
   link: (scope, el, attrs) -> 
     el.bind('click', (event) ->
       styid = el[0].dataset.styid
@@ -167,9 +172,9 @@ angular.module("evtsim", [])
 
 ###
   btnOuter
-  出发外部请求的按钮
+  触发外部请求的按钮
 ###
-.directive('btnOuter', ['RequestDispatcher', (RequestDispatcher) ->
+app.directive('btnOuter', ['RequestDispatcher', (RequestDispatcher) ->
   link: (scope, el, attrs) -> 
     el.bind('click', (event) ->
       styid = el[0].dataset.styid
@@ -178,6 +183,6 @@ angular.module("evtsim", [])
     )
 ])
 
-.run(['$rootScope', 'constant', ($rootScope, constant) ->
+app.run(['$rootScope', 'constant', ($rootScope, constant) ->
   $rootScope.constant = constant;
 ])
