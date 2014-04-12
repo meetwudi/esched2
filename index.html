@@ -1,10 +1,37 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" ng-app="evtsim">
 <head>
   <meta charset="UTF-8">
   <title>Elevator Simulator</title>
+
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  
+<div id="page">
+  <header>
+    <hgroup>
+      <h1>Elevator Simulator</h1>
+      <h4>作者：吴迪，同济大学软件学院</h4>
+    </hgroup>
+  </header>
+  <div id="main" class="clearfix">
+    <div class="ctrl-board">
+      <div class="ctrl-evts clearfix">
+        <h2>电梯控制（5部）</h2>
+        <section evt-ctrl ng-repeat="evtid in [0, 1, 2, 3, 4]" evtid="{{evtid}}"></section>
+      </div>
+      <div class="ctrl-stys">
+        <h2>楼层外部控制（20层）</h2>
+        <section sty-ctrl ng-repeat="styid in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]" styid="{{styid}}"></section>
+      </div>
+    </div>
+    <aside class="evt-info">
+      <h2>电梯信息汇总</h2>
+    </aside>
+  </div>
+</div>
+
+<script src="http://cdn.staticfile.org/angular.js/1.2.0rc3/angular.min.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
