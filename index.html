@@ -28,7 +28,15 @@
     <aside class="evt-info">
       <h2>电梯信息汇总</h2>
       <ul>
-        <li ng-repeat="evtid in constant.evtids" evtid="{{evtid}}">1楼，上行，关门</li>
+        <li ng-repeat="evtid in constant.evtids" evtid="{{evtid}}">
+          <h4>电梯{{evtid}}</h4>
+          <p>{{elevators[evtid].cursty}}楼，
+              <span ng-switch on="elevators[evtid].status">
+                <span ng-switch-when="1">上行</span>
+                <span ng-switch-when="0">暂停</span>
+                <span ng-switch-when="-1">下行</span>
+              </span>
+        </li>
       </ul>
     </aside>
   </div>

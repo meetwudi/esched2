@@ -29,12 +29,10 @@ app.factory('RequestQueue', ['constant', (constant) ->
       return true
 
     addRequest: (styid, cursty, status) ->
+      console.log("添加中#{styid} #{cursty} #{status}");
       # 成功返回true，否则返回false
-      return false if (status is 0 and cursty is styid) or 
-               (status is 1 and cursty > styid) or
-               (status is -1 and cursty < styid) or
-               (not(1 <= styid  <= constant.stycnt)) or
-               (not(1 <= cursty <= constant.stycnt))
+      if (status is 1 and cursty > styid) or (status is -1 and cursty < styid) or (not(1 <= styid  <= constant.stycnt)) or (not(1 <= cursty <= constant.stycnt))
+         return false
       @_data[styid] = true
       true
 
@@ -57,57 +55,73 @@ app.factory('RequestQueue', ['constant', (constant) ->
         if @_data[sty]
           return sty
       -1 # 下降方向没有要去的地方了
+
 ])
 
-app.factory('Elevator', ['RequestQueue', 'constant', (RequestQueue, constant) ->
-  class Elevator
+app.factory('Elevator', ['RequestQueue', 'constant', '$rootScope', (RequestQueue, constant, $rootScope) ->
+  class Elevator 
     # @status: 0: 暂停, 1: 上行, -1: 下行
     constructor: (@id) ->
       @cursty = 1    # 一开始全部电梯在一楼
       @status = 0
       @requestQueue = new RequestQueue
+      @_fakeThreadWorking = false
+      @_fakeThreadFn = @_step.bind(@)
 
-    addRequest: (styid) ->
-      result = @requestQueue.addRequest(styid, @cursty)
+    addRequest: (styid, callback) ->
+      result = @requestQueue.addRequest(styid, @cursty, @status)
+      console.log("【电梯#{@id}】：addRequest: 添加请求到#{styid}楼, 目前电梯状态#{@status}")
       if result
-        @onStatusMayChange() 
+        @onStatusMayChange()
+        return true
       else
-        alert('注册该任务失败') # ugly alert
+        return false
 
     onStatusMayChange: ->
-      if @requestQueue.isEmpty()
+      if @requestQueue.isEmpty() and @status isnt 0
         @status = 0
-      else if @requestQueue.getNearestRequest(@cursty, @status) > @cursty
+        console.log("【电梯#{@id}】：状态改到0")
+      else if (@requestQueue.getNearestRequest(@cursty, @status) >= @cursty) and (@status isnt 1)
         @status = 1
-      else
-        @status = -1
-      console.log("Status changed to: #{@status}")
-      setTimeout(@_step.bind(this), constant.timeunit)
+        console.log("【电梯#{@id}】：状态改到1")
+      else if (@requestQueue.getNearestRequest(@cursty, @status) <= @cursty) and (@status isnt -1)
+        @status = -1 
+        console.log("【电梯#{@id}】：状态改到-1")
+      $rootScope.$apply()
+
+      if (not @_fakeThreadWorking) and (not @requestQueue.isEmpty())
+        setTimeout(@_fakeThreadFn, constant.timeunit)
+        @_fakeThreadWorking = true
 
     _step: ->
       nearestRequest = @requestQueue.getNearestRequest(@cursty, @status)
       if nearestRequest is @cursty
         @requestQueue.resolveRequest(@cursty)
+        console.log("【电梯#{@id}】：到达一次目的地，这里是#{@cursty}")
+        @_fakeThreadWorking = false 
         @onStatusMayChange()
       else 
         if nearestRequest > @cursty
           @_moveUp()
         else
           @_moveDown()
-        setTimeout(@_step.bind(this), constant.timeunit)
+        setTimeout(@_fakeThreadFn, constant.timeunit)
 
     _moveUp: -> 
       @cursty++
-      console.log("move up to #{@cursty}");
+      $rootScope.$apply()
+      console.log("【电梯#{@id}】：到#{@cursty}")
 
     _moveDown: -> 
       @cursty--
+      $rootScope.$apply()
+      console.log("【电梯#{@id}】到#{@cursty}")
 ])
 
 app.factory('elevators', ['Elevator', 'constant', (Elevator, constant) ->
   evts = []
-  for evtid in [1..constant.evtcnt]
-    evts.push(new Elevator)
+  for evtid in [0..constant.evtcnt]
+    evts.push(new Elevator(evtid))
   evts
 ])
 
@@ -116,8 +130,10 @@ app.factory('elevators', ['Elevator', 'constant', (Elevator, constant) ->
   负责分发外部请求，在这里做无差异分发（即遇到可分发的电梯便分发）
 ###
 app.service('RequestDispatcher', ['elevators', 'constant', (elevators, constant) -> 
-  @dispatch = (sty) ->
+  @dispatch = (sty, dir) ->
     for elevator in elevators
+      if (Math.abs(dir - elevators.status) is 2)
+        continue # 方向相反不考虑
       if elevator.addRequest(sty)
         return
     # 设定每个timeunit的一半为轮询周期
@@ -150,8 +166,8 @@ app.directive("styCtrl", [ ->
     '<section class="ctrl-sty">
       <h5>{{styid}}</h5>
       <div class="form-arrow">
-        <button data-styid="{{styid}}" data-dir="up" btn-outer>↑</button>
-        <button data-styid="{{styid}}" data-dir="down" btn-outer>↓</button>
+        <button data-styid="{{styid}}" data-dir="1" btn-outer>↑</button>
+        <button data-styid="{{styid}}" data-dir="-1" btn-outer>↓</button>
       </div>
     </section>'
 ])
@@ -166,7 +182,8 @@ app.directive('btnInner', ['elevators', (elevators) ->
       styid = el[0].dataset.styid
       evtid = el[0].dataset.evtid
       # 直接注册
-      elevators[evtid].addRequest(styid)
+      if not elevators[evtid].addRequest(styid)
+        alert('注册任务失败！')
     )
 ])
 
@@ -178,11 +195,13 @@ app.directive('btnOuter', ['RequestDispatcher', (RequestDispatcher) ->
   link: (scope, el, attrs) -> 
     el.bind('click', (event) ->
       styid = el[0].dataset.styid
+      dir = el[0].dataset.dir
       # 委托RequestDispatcher分发请求
-      RequestDispatcher.dispatch(styid)
+      RequestDispatcher.dispatch(styid, dir)
     )
 ])
 
-app.run(['$rootScope', 'constant', ($rootScope, constant) ->
+app.run(['$rootScope', 'constant', 'elevators', ($rootScope, constant, elevators) ->
   $rootScope.constant = constant;
+  $rootScope.elevators = elevators;
 ])
